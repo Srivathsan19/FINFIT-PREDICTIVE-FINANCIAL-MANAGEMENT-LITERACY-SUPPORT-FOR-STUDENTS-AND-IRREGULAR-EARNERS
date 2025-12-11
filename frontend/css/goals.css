@@ -1,0 +1,159 @@
+/* Goals Page Styles */
+
+.goal-form {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.goal-form input {
+    padding: 12px;
+    border-radius: 8px;
+    border: 1px solid #444;
+    background: #2d3436;
+    color: #f1f1f1;
+    font-size: 1em;
+}
+
+.goal-form button {
+    padding: 12px;
+    background: #00b894;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 1em;
+    font-weight: bold;
+    transition: background 0.2s;
+}
+
+.goal-form button:hover {
+    background: #00a085;
+}
+
+.goal-card {
+    margin: 20px 0;
+}
+
+.goal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+}
+
+.goal-header h3 {
+    margin: 0;
+}
+
+.goal-deadline {
+    padding: 5px 15px;
+    background: #2d3436;
+    border-radius: 20px;
+    font-size: 0.9em;
+}
+
+.goal-deadline.overdue {
+    background: #e17055;
+    color: white;
+}
+
+.goal-progress {
+    margin: 20px 0;
+}
+
+.progress-bar-container {
+    width: 100%;
+    height: 25px;
+    background: #2d3436;
+    border-radius: 15px;
+    overflow: hidden;
+    margin-bottom: 10px;
+}
+
+.progress-bar {
+    height: 100%;
+    background: linear-gradient(90deg, #00b894 0%, #00cec9 100%);
+    transition: width 0.3s ease;
+    border-radius: 15px;
+}
+
+.progress-text {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.9em;
+    color: #aaa;
+}
+
+.progress-percent {
+    font-weight: bold;
+    color: #00b894;
+}
+
+.goal-details {
+    display: flex;
+    gap: 30px;
+    margin: 15px 0;
+    color: #aaa;
+}
+
+.goal-actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 15px;
+    flex-wrap: wrap;
+    width: 100%;
+}
+
+.update-input {
+    flex: 1;
+    min-width: 150px;
+    padding: 10px;
+    border-radius: 8px;
+    border: 1px solid #444;
+    background: #2d3436;
+    color: #f1f1f1;
+    font-size: 1em;
+    box-sizing: border-box;
+}
+
+.update-btn {
+    padding: 10px 20px;
+    background: #0984e3;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background 0.2s;
+    min-height: 44px; /* Minimum touch target size */
+    white-space: nowrap;
+}
+
+.update-btn:hover {
+    background: #0770c4;
+}
+
+.delete-goal-btn {
+    background: rgba(225, 112, 85, 0.2);
+    border: 1px solid rgba(225, 112, 85, 0.4);
+    color: #e17055;
+    padding: 6px 12px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 1em;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.delete-goal-btn:hover {
+    background: rgba(225, 112, 85, 0.3);
+    border-color: #e17055;
+    transform: scale(1.05);
+}
+
+.delete-goal-btn:active {
+    transform: scale(0.95);
+}
+

@@ -1,0 +1,146 @@
+/* Login Page Styles */
+
+.login-page {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 30px;
+    align-items: stretch;
+}
+
+.login-card {
+    padding: 40px;
+    background: linear-gradient(135deg, #171b1d 0%, #1e2426 100%);
+}
+
+.login-card h1 {
+    margin-top: 0;
+    font-size: 2em;
+}
+
+.login-subtext {
+    color: #b0b7bd;
+    line-height: 1.6;
+    margin-bottom: 30px;
+}
+
+.login-form label {
+    font-size: 0.9em;
+    color: #c7cdd3;
+}
+
+.login-form input {
+    padding: 12px 14px;
+    border-radius: 10px;
+    border: 1px solid #2f3437;
+    background: #101213;
+    color: #f1f1f1;
+    width: 100%;
+    box-sizing: border-box;
+    font-size: 1em;
+    min-height: 44px; /* Minimum touch target size */
+}
+
+.login-form button {
+    border-radius: 999px;
+    padding: 14px;
+    font-size: 1em;
+    background: linear-gradient(120deg, #00b894, #00cec9);
+    border: none;
+    cursor: pointer;
+    color: #0f1112;
+    font-weight: 600;
+    transition: transform 0.2s, box-shadow 0.2s;
+    width: 100%;
+    min-height: 44px; /* Minimum touch target size */
+}
+
+.login-form button:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 12px 30px rgba(0, 184, 148, 0.25);
+}
+
+.login-benefits {
+    padding: 40px;
+    background: #1f2426;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.benefit-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(0, 184, 148, 0.15);
+    color: #00cec9;
+    padding: 8px 14px;
+    border-radius: 999px;
+    font-size: 0.85em;
+    width: fit-content;
+}
+
+.benefit-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.benefit-list li {
+    padding: 14px;
+    border-radius: 12px;
+    background: #262c2f;
+    line-height: 1.5;
+}
+
+.login-divider {
+    height: 1px;
+    background: rgba(255,255,255,0.08);
+    margin: 20px 0;
+}
+
+.remember-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    color: #9aa0a6;
+    font-size: 0.9em;
+}
+
+.remember-row label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.remember-row input {
+    width: auto;
+}
+
+.forgot-link {
+    color: #00cec9;
+    text-decoration: none;
+    font-weight: 600;
+}
+
+.forgot-link:hover {
+    text-decoration: underline;
+}
+
+.social-login {
+    display: flex;
+    gap: 12px;
+}
+
+.social-login button {
+    flex: 1;
+    padding: 12px;
+    border-radius: 12px;
+    border: 1px solid rgba(255,255,255,0.12);
+    background: transparent;
+    color: #f1f1f1;
+    cursor: pointer;
+}
+

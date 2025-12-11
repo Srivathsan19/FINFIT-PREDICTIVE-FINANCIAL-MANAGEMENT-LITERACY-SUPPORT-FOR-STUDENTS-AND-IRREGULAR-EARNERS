@@ -1,0 +1,216 @@
+/* Responsive Design - Media Queries */
+
+@media (max-width: 1200px) {
+    .main-shell {
+        padding: 110px 20px 60px;
+    }
+}
+
+@media (max-width: 900px) {
+    .top-nav {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 12px;
+        padding: 12px 15px;
+    }
+    .nav-links {
+        justify-content: flex-start;
+        width: 100%;
+    }
+    .main-shell {
+        padding: 140px 15px 40px;
+    }
+    .dashboard-main-grid {
+        grid-template-columns: 1fr;
+        gap: 15px;
+    }
+    .dashboard-stats {
+        grid-template-columns: 1fr;
+        gap: 12px;
+    }
+    .stat-card {
+        padding: 15px;
+    }
+    .card {
+        padding: 15px;
+    }
+}
+
+@media (max-width: 768px) {
+    .top-nav {
+        padding: 10px 12px;
+    }
+    .logo-icon {
+        width: 36px;
+        height: 36px;
+        font-size: 0.9em;
+    }
+    .logo-copy strong {
+        font-size: 1em;
+    }
+    .logo-copy small {
+        font-size: 0.8em;
+    }
+    .nav-link {
+        padding: 6px 12px;
+        font-size: 0.85em;
+        min-height: 36px; /* Minimum touch target */
+    }
+    .main-shell {
+        padding: 130px 12px 30px;
+    }
+    .welcome-title {
+        font-size: 1.5em;
+        gap: 8px;
+    }
+    .dashboard-tabs {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: thin;
+    }
+    .tab-btn {
+        padding: 8px 16px;
+        font-size: 0.9em;
+        white-space: nowrap;
+        min-height: 40px; /* Minimum touch target */
+    }
+    .pie-chart-container {
+        height: 280px;
+        min-height: 280px;
+    }
+    .stat-amount {
+        font-size: 1.8em;
+    }
+    .card-header {
+        flex-wrap: wrap;
+        gap: 10px;
+    }
+    .subscription-item {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    .chatbot-window {
+        width: calc(100vw - 32px);
+        max-width: 420px;
+        height: calc(100vh - 100px);
+        max-height: 600px;
+    }
+    .card-add-btn {
+        min-width: 36px;
+        min-height: 36px;
+    }
+}
+
+@media (max-width: 540px) {
+    .top-nav {
+        padding: 8px 10px;
+    }
+    .nav-links {
+        gap: 6px;
+    }
+    .nav-link {
+        padding: 6px 10px;
+        font-size: 0.8em;
+    }
+    .main-shell {
+        padding: 120px 10px 20px;
+    }
+    .welcome-title {
+        font-size: 1.3em;
+    }
+    .dashboard-tabs {
+        gap: 5px;
+    }
+    .tab-btn {
+        padding: 6px 12px;
+        font-size: 0.85em;
+    }
+    .dashboard-stats {
+        gap: 10px;
+    }
+    .stat-card {
+        padding: 12px;
+    }
+    .stat-amount {
+        font-size: 1.5em;
+    }
+    .pie-chart-container {
+        height: 250px;
+        min-height: 250px;
+    }
+    .card {
+        padding: 12px;
+        margin: 10px 0;
+    }
+    .card-header h3 {
+        font-size: 1em;
+    }
+    .subscription-info strong {
+        font-size: 0.9em;
+    }
+    .subscription-amount {
+        font-size: 1em;
+    }
+    .center-amount {
+        font-size: 1.2em;
+    }
+}
+
+@media (max-width: 400px) {
+    .top-nav {
+        padding: 6px 8px;
+    }
+    .logo-icon {
+        width: 32px;
+        height: 32px;
+        font-size: 0.8em;
+    }
+    .logo-copy strong {
+        font-size: 0.9em;
+    }
+    .logo-copy small {
+        font-size: 0.75em;
+    }
+    .nav-link {
+        padding: 5px 8px;
+        font-size: 0.75em;
+    }
+    .main-shell {
+        padding: 110px 8px 15px;
+    }
+    .welcome-title {
+        font-size: 1.2em;
+    }
+    .stat-amount {
+        font-size: 1.3em;
+    }
+    .pie-chart-container {
+        height: 220px;
+        min-height: 220px;
+    }
+    .card {
+        padding: 10px;
+    }
+    .chatbot-window {
+        width: calc(100vw - 20px);
+        height: calc(100vh - 80px);
+        max-height: 600px;
+        border-radius: 15px;
+    }
+    .chatbot-toggle-btn {
+        width: 56px;
+        height: 56px;
+        font-size: 1.5em;
+    }
+    .goal-actions {
+        flex-direction: column;
+    }
+    .update-input {
+        width: 100%;
+        min-width: 100%;
+    }
+    .update-btn {
+        width: 100%;
+    }
+}
+

@@ -1,0 +1,111 @@
+/* Navigation Styles - Top Nav, Logo, Nav Links, Theme Toggle */
+
+.top-nav {
+    position: sticky;
+    top: 0;
+    width: 100%;
+    max-width: 100%;
+    background: rgba(16, 18, 19, 0.95);
+    backdrop-filter: blur(12px);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 15px;
+    padding: 15px 20px;
+    box-shadow: 0 6px 20px rgba(0,0,0,0.35);
+    z-index: 100;
+    overflow-x: auto;
+    overflow-y: hidden;
+}
+
+.logo {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.logo-icon {
+    width: 42px;
+    height: 42px;
+    border-radius: 12px;
+    background: linear-gradient(135deg, #00b894 0%, #00cec9 100%);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    color: #0f1112;
+}
+
+.logo-copy strong {
+    display: block;
+    font-size: 1.1em;
+}
+
+.logo-copy small {
+    color: #9aa0a6;
+    font-size: 0.85em;
+}
+
+.nav-links {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    justify-content: center;
+    flex: 1;
+    min-width: 0;
+}
+
+.nav-link {
+    border: none;
+    background: transparent;
+    color: #cfd3d7;
+    padding: 8px 14px;
+    border-radius: 999px;
+    font-size: 0.9em;
+    cursor: pointer;
+    transition: background 0.2s, color 0.2s, transform 0.2s;
+    white-space: nowrap;
+    min-width: fit-content;
+}
+
+.nav-link:hover {
+    background: rgba(255, 255, 255, 0.08);
+    transform: translateY(-1px);
+}
+
+.nav-link.active {
+    background: linear-gradient(120deg, #00b894, #00cec9);
+    color: #0f1112;
+    font-weight: 600;
+    box-shadow: 0 8px 18px rgba(0, 184, 148, 0.25);
+}
+
+.nav-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.theme-toggle {
+    width: 42px;
+    height: 42px;
+    border-radius: 50%;
+    border: 1px solid rgba(255,255,255,0.1);
+    background: transparent;
+    color: #f1f1f1;
+    font-size: 1.1em;
+    cursor: pointer;
+    transition: background 0.2s, border-color 0.2s;
+}
+
+.theme-toggle:hover {
+    background: rgba(255,255,255,0.08);
+    border-color: rgba(255,255,255,0.4);
+}
+
+.theme-toggle.active {
+    background: linear-gradient(120deg, #00b894, #00cec9);
+    color: #0f1112;
+    border-color: rgba(255,255,255,0.4);
+}
+

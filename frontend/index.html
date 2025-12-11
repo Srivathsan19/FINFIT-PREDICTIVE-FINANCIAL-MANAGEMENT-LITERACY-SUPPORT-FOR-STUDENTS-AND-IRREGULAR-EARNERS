@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
+    <title>FinFit</title>
+    <!-- CSS Files - Modular Structure -->
+    <link rel="stylesheet" href="css/base.css">
+    <link rel="stylesheet" href="css/navigation.css">
+    <link rel="stylesheet" href="css/dashboard.css">
+    <link rel="stylesheet" href="css/transactions.css">
+    <link rel="stylesheet" href="css/budget.css">
+    <link rel="stylesheet" href="css/goals.css">
+    <link rel="stylesheet" href="css/analytics.css">
+    <link rel="stylesheet" href="css/learning.css">
+    <link rel="stylesheet" href="css/forms.css">
+    <link rel="stylesheet" href="css/chatbot.css">
+    <link rel="stylesheet" href="css/login.css">
+    <link rel="stylesheet" href="css/profile.css">
+    <link rel="stylesheet" href="css/merchant.css">
+    <link rel="stylesheet" href="css/theme.css">
+    <link rel="stylesheet" href="css/responsive.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <header class="top-nav">
+        <div class="logo">
+            <span class="logo-icon">FF</span>
+            <div class="logo-copy">
+                <strong>FinFit</strong>
+                <small>Money made simple</small>
+            </div>
+        </div>
+        <nav class="nav-links">
+            <button class="nav-link" id="nav-dashboard" type="button">Dashboard</button>
+            <button class="nav-link" id="nav-transactions" type="button">Transactions</button>
+            <button class="nav-link" id="nav-goals" type="button">Goals</button>
+            <button class="nav-link" id="nav-analytics" type="button" style="display: none;">Analytics</button>
+            <button class="nav-link" id="nav-learning" type="button">Learning</button>
+            <button class="nav-link" id="nav-merchant" type="button" style="display: none;">Merchant</button>
+            <button class="nav-link" id="nav-profile" type="button" style="display: none;">Profile</button>
+            <button class="nav-link" id="nav-login" type="button">Login</button>
+        </nav>
+        <div class="nav-actions">
+            <div id="user-info" style="display: none; margin-right: 10px;">
+                <span id="user-name-display" style="color: #00b894; font-size: 0.9em;"></span>
+            </div>
+            <button id="nav-logout" class="nav-link" type="button" style="display: none;">Logout</button>
+            <button id="toggle-theme" class="theme-toggle" aria-label="Toggle theme">🌙</button>
+        </div>
+    </header>
+    <main class="main-shell">
+        <section class="main-content" id="main-content">
+            <!-- Dashboard, forms, charts, etc. will be injected here -->
+        </section>
+    </main>
+    <div id="chatbot-widget">
+        <button id="open-chatbot" class="chatbot-toggle-btn">
+            <span class="chatbot-icon">💬</span>
+            <span class="chatbot-badge" id="chatbot-badge" style="display:none;">1</span>
+        </button>
+        <div id="chatbot-window" class="chatbot-window" style="display:none;">
+            <div class="chatbot-header">
+                <div class="chatbot-header-info">
+                    <div class="chatbot-avatar">🤖</div>
+                    <div>
+                        <h4>FinFit Assistant</h4>
+                        <span class="chatbot-status">Online</span>
+                    </div>
+                </div>
+                <button id="close-chatbot" class="chatbot-close-btn">✕</button>
+            </div>
+            <div id="chatbot-messages" class="chatbot-messages">
+                <div class="chatbot-message bot-message">
+                    <div class="message-avatar">🤖</div>
+                    <div class="message-content">
+                        <p>Hello! I'm your FinFit assistant. I can help you with budgeting, saving money, tracking expenses, and setting financial goals. What would you like to know?</p>
+                    </div>
+                </div>
+            </div>
+            <div class="chatbot-input-container">
+                <input type="text" id="chatbot-input" placeholder="Ask me about budgeting..." autocomplete="off">
+                <button id="send-chatbot" class="chatbot-send-btn">
+                    <span>➤</span>
+                </button>
+            </div>
+        </div>
+    </div>
+    <script src="js/utils.js"></script>
+    <script src="js/navigation.js"></script>
+    <script src="js/dashboard.js"></script>
+    <script src="js/transactions.js"></script>
+    <script src="js/budget.js"></script>
+    <script src="js/goals.js"></script>
+    <script src="js/analytics.js"></script>
+    <script src="js/learning.js"></script>
+    <script src="js/login.js"></script>
+    <script src="js/profile.js"></script>
+    <script src="js/merchant.js"></script>
+    <script src="js/chatbot.js"></script>
+    <script src="js/charts.js"></script>
+    <script src="js/main.js"></script>
+</body>
+</html>
