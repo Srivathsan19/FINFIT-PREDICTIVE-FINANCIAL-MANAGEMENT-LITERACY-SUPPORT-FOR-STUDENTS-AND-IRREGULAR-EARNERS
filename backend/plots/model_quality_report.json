@@ -1,0 +1,25 @@
+{
+  "generated_at": "2026-03-23T23:39:47",
+  "db_path": "C:\\Users\\asus tuf\\Downloads\\FinFit_Project - Copy - Copy\\backend\\database.db",
+  "user_id": null,
+  "transactions_used": 62,
+  "monthly_points": 5,
+  "regression_quality": {
+    "status": "ok",
+    "months_used": 5,
+    "r2_in_sample": 0.08634007455090398,
+    "holdout_actual_last_month": 22457.0,
+    "holdout_predicted_last_month": 1050465.0,
+    "holdout_mae": 1028008.0,
+    "holdout_mape_percent": 4577.672885959834,
+    "verdict": "needs_more_data_or_modeling"
+  },
+  "clustering_quality": {
+    "status": "ok",
+    "points_used": 38,
+    "k_used": 3,
+    "silhouette": 0.37323630548670966,
+    "verdict": "good"
+  },
+  "overall_verdict": "acceptable_with_limitations"
+}

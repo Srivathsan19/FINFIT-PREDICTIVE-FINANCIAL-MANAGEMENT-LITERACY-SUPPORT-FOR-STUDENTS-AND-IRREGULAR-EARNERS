@@ -1,0 +1,25 @@
+{
+  "generated_at": "2026-03-23T23:43:13",
+  "db_path": "backend/demo_data/synthetic_demo.db",
+  "user_id": 999,
+  "transactions_used": 363,
+  "monthly_points": 24,
+  "regression_quality": {
+    "status": "ok",
+    "months_used": 24,
+    "r2_in_sample": 0.8650105886639888,
+    "holdout_actual_last_month": 49055.86000000001,
+    "holdout_predicted_last_month": 49735.28699604742,
+    "holdout_mae": 679.4269960474121,
+    "holdout_mape_percent": 1.3850067984689536,
+    "verdict": "good"
+  },
+  "clustering_quality": {
+    "status": "ok",
+    "points_used": 329,
+    "k_used": 5,
+    "silhouette": 0.2546053900824271,
+    "verdict": "good"
+  },
+  "overall_verdict": "strong"
+}

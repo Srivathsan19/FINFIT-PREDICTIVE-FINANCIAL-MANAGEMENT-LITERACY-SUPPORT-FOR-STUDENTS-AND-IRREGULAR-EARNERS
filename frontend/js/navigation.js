@@ -37,7 +37,6 @@ function initNavigation() {
         'nav-goals': showGoals,
         'nav-analytics': showAnalytics,
         'nav-learning': showLearning,
-        'nav-merchant': showMerchant,
         'nav-profile': showProfile,
         'nav-login': showLogin
     };
@@ -71,7 +70,6 @@ async function updateAuthUI() {
         
         const profileBtn = document.getElementById('nav-profile');
         const analyticsBtn = document.getElementById('nav-analytics');
-        const merchantBtn = document.getElementById('nav-merchant');
         if (data.email && data.authenticated !== false) {
             // User is logged in
             if (userInfo) userInfo.style.display = 'block';
@@ -79,7 +77,6 @@ async function updateAuthUI() {
             if (logoutBtn) logoutBtn.style.display = 'block';
             if (profileBtn) profileBtn.style.display = 'block';
             if (analyticsBtn) analyticsBtn.style.display = 'block';
-            if (merchantBtn) merchantBtn.style.display = 'block';
             if (loginBtn) loginBtn.style.display = 'none';
         } else {
             // User is not logged in
@@ -87,7 +84,6 @@ async function updateAuthUI() {
             if (logoutBtn) logoutBtn.style.display = 'none';
             if (profileBtn) profileBtn.style.display = 'none';
             if (analyticsBtn) analyticsBtn.style.display = 'none';
-            if (merchantBtn) merchantBtn.style.display = 'none';
             if (loginBtn) loginBtn.style.display = 'block';
         }
     } catch (err) {

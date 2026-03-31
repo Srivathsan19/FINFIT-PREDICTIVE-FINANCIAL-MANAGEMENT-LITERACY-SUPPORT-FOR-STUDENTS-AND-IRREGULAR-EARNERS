@@ -1,0 +1,35 @@
+{
+  "generated_at": "2026-03-23T23:36:48",
+  "db_path": "C:\\Users\\asus tuf\\Downloads\\FinFit_Project - Copy - Copy\\backend\\database.db",
+  "user_id": 3,
+  "transactions_used": 26,
+  "regression": {
+    "months_used": 2,
+    "slope": -43035.0,
+    "intercept": 700000.0,
+    "r2": 1.0,
+    "forecast_next_month_total": 613930.0,
+    "forecast_label": "2026-01",
+    "plots": [
+      "backend/plots_user3\\regression_monthly_forecast.png",
+      "backend/plots_user3\\regression_residuals.png"
+    ]
+  },
+  "clustering": {
+    "points_used": 17,
+    "features": [
+      "amount",
+      "day_of_month",
+      "weekday",
+      "category_id"
+    ],
+    "categories_count": 4,
+    "k_used": 3,
+    "inertia": 32.15168806251272,
+    "plots": [
+      "backend/plots_user3\\clustering_elbow.png",
+      "backend/plots_user3\\clustering_scatter_pca.png",
+      "backend/plots_user3\\clustering_profile_mean_amount.png"
+    ]
+  }
+}

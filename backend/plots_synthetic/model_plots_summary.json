@@ -1,0 +1,35 @@
+{
+  "generated_at": "2026-03-23T23:41:30",
+  "db_path": "backend/demo_data/synthetic_demo.db",
+  "user_id": 999,
+  "transactions_used": 363,
+  "regression": {
+    "months_used": 24,
+    "slope": 824.6632695652174,
+    "intercept": 30661.58823333333,
+    "r2": 0.8650105886639888,
+    "forecast_next_month_total": 50453.50670289855,
+    "forecast_label": "2026-04",
+    "plots": [
+      "backend/plots_synthetic\\regression_monthly_forecast.png",
+      "backend/plots_synthetic\\regression_residuals.png"
+    ]
+  },
+  "clustering": {
+    "points_used": 329,
+    "features": [
+      "amount",
+      "day_of_month",
+      "weekday",
+      "category_id"
+    ],
+    "categories_count": 8,
+    "k_used": 3,
+    "inertia": 842.4987857429599,
+    "plots": [
+      "backend/plots_synthetic\\clustering_elbow.png",
+      "backend/plots_synthetic\\clustering_scatter_pca.png",
+      "backend/plots_synthetic\\clustering_profile_mean_amount.png"
+    ]
+  }
+}

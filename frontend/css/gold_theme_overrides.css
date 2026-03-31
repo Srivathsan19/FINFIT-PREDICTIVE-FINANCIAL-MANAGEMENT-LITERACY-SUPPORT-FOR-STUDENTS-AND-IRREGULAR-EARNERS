@@ -1,0 +1,86 @@
+/* Global Black + Gold Theme Overrides (dark mode only)
+   This is applied after other CSS files. */
+
+html {
+    scroll-behavior: smooth;
+}
+
+body:not(.light) {
+    background: radial-gradient(1200px 600px at 20% 0%, rgba(212, 175, 55, 0.12), transparent 55%),
+                radial-gradient(900px 500px at 85% 25%, rgba(212, 175, 55, 0.07), transparent 50%),
+                #0b0b0c;
+    color: #f5f0e7;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+}
+
+body:not(.light) .top-nav {
+    background: rgba(6, 6, 7, 0.92);
+    border-bottom: 1px solid rgba(212, 175, 55, 0.16);
+    box-shadow: 0 10px 26px rgba(0, 0, 0, 0.45);
+}
+
+body:not(.light) .logo-icon {
+    background: linear-gradient(135deg, #d4af37 0%, #f2d27b 100%);
+    color: #0b0b0c;
+}
+
+body:not(.light) .nav-link:hover {
+    background: rgba(212, 175, 55, 0.10);
+}
+
+body:not(.light) .nav-link.active {
+    background: linear-gradient(120deg, rgba(212, 175, 55, 0.92), rgba(242, 210, 123, 0.95));
+    color: #0b0b0c;
+    box-shadow: 0 10px 22px rgba(212, 175, 55, 0.16);
+}
+
+body:not(.light) .card {
+    border: 1px solid rgba(212, 175, 55, 0.14);
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.38);
+}
+
+body:not(.light) h1,
+body:not(.light) h3 {
+    color: #f2d27b;
+}
+
+/* Analytics: keep insight stripe colors from analytics.css,
+   but upgrade typography + card borders to match gold theme. */
+body:not(.light) .analytics-hero-title {
+    color: #f2d27b !important;
+    text-shadow: 0 0 18px rgba(212, 175, 55, 0.10);
+}
+
+body:not(.light) .analytics-hero-subtitle {
+    color: rgba(242, 210, 123, 0.78) !important;
+}
+
+body:not(.light) .insight-label {
+    color: rgba(242, 210, 123, 0.92) !important;
+}
+
+body:not(.light) .insight-meta {
+    color: rgba(242, 210, 123, 0.72) !important;
+}
+
+body:not(.light) .insight-card {
+    border: 1px solid rgba(212, 175, 55, 0.14) !important;
+}
+
+/* Smooth hover for clickable nav/buttons */
+body:not(.light) button,
+body:not(.light) .nav-link {
+    transition: background 0.25s ease, transform 0.2s ease, box-shadow 0.25s ease;
+}
+
+body:not(.light) .tool-btn {
+    background: linear-gradient(135deg, #d4af37 0%, #f2d27b 100%) !important;
+    box-shadow: 0 14px 38px rgba(212, 175, 55, 0.14) !important;
+    color: #0b0b0c !important;
+}
+
+body:not(.light) .tool-btn:hover {
+    box-shadow: 0 18px 48px rgba(212, 175, 55, 0.22) !important;
+}
+

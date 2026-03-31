@@ -2,7 +2,7 @@ from dotenv import load_dotenv
 load_dotenv()
 from flask import Flask, request, jsonify, send_from_directory, send_file, session
 from flask_cors import CORS
-from models import db, Transaction, Goal, User, PaymentRequest, GmailConnection
+from models import db, Transaction, Goal, User, GmailConnection
 from sqlalchemy import func
 import requests
 import os
@@ -11,9 +11,6 @@ from collections import defaultdict
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
-import secrets
-import qrcode
-import io
 import base64
 import re
 from threading import Thread
@@ -37,17 +34,11 @@ db.init_app(app)
 # Register blueprints
 from routes.analytics import analytics_bp
 app.register_blueprint(analytics_bp)
+from routes.learning import learning_bp
+app.register_blueprint(learning_bp)
 
-# Email configuration (using Gmail SMTP as default)
-# To configure email:
-# 1. For Gmail: Create an App Password (https://myaccount.google.com/apppasswords)
-# 2. Set environment variables:
-#    - Windows: set SMTP_EMAIL=your-email@gmail.com
-#    - Windows: set SMTP_PASSWORD=your-app-password
-#    - Linux/Mac: export SMTP_EMAIL=your-email@gmail.com
-#    - Linux/Mac: export SMTP_PASSWORD=your-app-password
-# 3. Or modify the default values below (not recommended for production)
-# For other email providers, adjust SMTP_SERVER and SMTP_PORT accordingly
+from ml.learning_refresh import refresh_user_learning_recommendations
+
 SMTP_SERVER = os.getenv('SMTP_SERVER', 'smtp.gmail.com')
 SMTP_PORT = int(os.getenv('SMTP_PORT', '587'))
 SMTP_EMAIL = os.getenv('SMTP_EMAIL', '')  # Your email
@@ -87,6 +78,9 @@ def add_transaction():
     )
     db.session.add(t)
     db.session.commit()
+
+    # Refresh adaptive learning recommendations immediately after every new transaction.
+    refresh_user_learning_recommendations(user.id)
     return jsonify({'message': 'Transaction added'}), 201
 
 @app.route('/api/transactions/<int:id>', methods=['DELETE'])
@@ -189,104 +183,88 @@ def get_summary():
 @app.route('/api/prediction', methods=['GET'])
 def predict_next_month():
     """
-    Very simple predictive model for next-month expenses.
-    - Groups past expenses by month (YYYY-MM)
-    - Fits a straight line (month_index -> total_expense)
-    - Extrapolates one step ahead
-    This is NOT a full ML model, but it is a real, data-driven forecast.
+    Forecast next-month expenses.
+
+    Bug fix:
+      - When only 1 month of expense data exists, return an estimated projection
+        (last_month * 1.05) with confidence_level = low.
+      - Response includes both legacy keys (next_month_total) and new keys
+        (forecasted_amount, confidence_level, data_months_used, message).
     """
     user = get_current_user()
     if not user:
         return jsonify({'error': 'Authentication required'}), 401
-    
-    expenses = Transaction.query.filter_by(user_id=user.id, type='expense').all()
-    if not expenses:
-        return jsonify({
-            'history': [],
-            'next_month_label': None,
-            'next_month_total': 0.0
+    from ml.expense_forecast_lr2mo import forecast_expense_next_month_lr2mo
+
+    all_txns = Transaction.query.filter_by(user_id=user.id).all()
+    transactions_data = []
+    for t in all_txns:
+        date_str = t.date
+        if isinstance(t.date, datetime):
+            date_str = t.date.strftime("%Y-%m-%d")
+        transactions_data.append({
+            "type": t.type,
+            "amount": float(t.amount or 0.0),
+            "category": t.category or "Other",
+            "date": date_str,
         })
 
-    monthly_totals = defaultdict(float)
-    for t in expenses:
-        try:
-            dt = datetime.strptime(t.date, '%Y-%m-%d')
-        except Exception:
-            # Skip malformed dates
-            continue
-        key = dt.strftime('%Y-%m')
-        monthly_totals[key] += float(t.amount)
-
-    if not monthly_totals:
-        return jsonify({
-            'history': [],
-            'next_month_label': None,
-            'next_month_total': 0.0
-        })
-
-    # Sort months chronologically
-    sorted_items = sorted(monthly_totals.items(), key=lambda x: x[0])
-    months = [m for m, _ in sorted_items]
-    totals = [v for _, v in sorted_items]
-
-    n = len(totals)
-    # If we have only one month, predict the same amount
-    if n == 1:
-        predicted = totals[0]
-    else:
-        # Simple linear regression y = a*x + b on indices 0..n-1
-        x_vals = list(range(n))
-        sum_x = sum(x_vals)
-        sum_y = sum(totals)
-        sum_xx = sum(x * x for x in x_vals)
-        sum_xy = sum(x * y for x, y in zip(x_vals, totals))
-        denom = n * sum_xx - sum_x * sum_x
-        if denom == 0:
-            slope = 0.0
-            intercept = totals[-1]
-        else:
-            slope = (n * sum_xy - sum_x * sum_y) / denom
-            intercept = (sum_y - slope * sum_x) / n
-        next_x = n  # index of next month
-        predicted = slope * next_x + intercept
-
-    # Clamp negative predictions to zero
-    predicted = max(predicted, 0.0)
-
-    # Compute next month label based on latest month we have
-    last_month_str = months[-1]  # 'YYYY-MM'
-    try:
-        last_dt = datetime.strptime(last_month_str + '-01', '%Y-%m-%d')
-        # Add one month (roughly) by incrementing month and year
-        year = last_dt.year
-        month = last_dt.month + 1
-        if month == 13:
-            month = 1
-            year += 1
-        next_dt = datetime(year, month, 1)
-        next_label = next_dt.strftime('%Y-%m')
-    except Exception:
-        next_label = None
-
-    history = [
-        {'month': m, 'total': float(v)}
-        for m, v in sorted_items
-    ]
+    forecast = forecast_expense_next_month_lr2mo(transactions_data)
+    forecasted_amount = forecast.get("forecasted_amount")
 
     return jsonify({
-        'history': history,
-        'next_month_label': next_label,
-        'next_month_total': float(predicted)
+        "forecasted_amount": forecasted_amount,
+        "confidence_level": forecast.get("confidence_level"),
+        "data_months_used": forecast.get("data_months_used"),
+        "message": forecast.get("message"),
+        # legacy keys for existing frontend/dashboard.js
+        "next_month_label": forecast.get("next_month_label"),
+        "next_month_total": forecasted_amount,
+        "months_used": forecast.get("months_used", []),
     })
 
 # --- Chatbot ---
 SYSTEM_PROMPT = """You are a helpful financial assistant for FinFit, a personal finance management app. 
 You help users with budgeting, saving money, tracking expenses, setting financial goals, and general financial advice.
-Be friendly, concise, and practical. Focus on actionable advice. If asked about specific features, explain how they work in FinFit. Note: If it isnt anything about finance or FinFit, respond with I'm here to help with your financial questions!."""
+
+IMPORTANT INSTRUCTIONS:
+1. All amounts are in Indian Rupees (₹). Always use ₹ symbol when mentioning amounts.
+
+2. You have access to ALL user transactions. The transactions are sorted NEWEST FIRST (most recent at the top).
+   - When asked about "recent transactions", use the "RECENT TRANSACTIONS" section which shows the last 10 transactions sorted newest first.
+   - When asked about specific transactions, use the "ALL TRANSACTIONS" section.
+   - Transaction format: [Date] Type: ₹Amount | To/From: Category/Recipient Name
+
+3. Use this data to answer questions about:
+   - Which date had the highest spending?
+   - To whom was a payment made? (check the "To/From" field in transactions)
+   - Highest expense amount and when it occurred
+   - Recent transactions (use the RECENT TRANSACTIONS section, already sorted newest first)
+   - Spending patterns by date, category, or recipient
+   - Total spending on specific dates or to specific people
+   - Income received from specific sources
+   - Any transaction-related queries
+
+4. When answering transaction questions:
+   - Analyze the transaction data provided in the context
+   - Give specific dates, amounts in ₹, and category/recipient names
+   - Be precise and cite the actual transaction data
+   - For "recent transactions" queries, list them in order (newest first) as shown in RECENT TRANSACTIONS section
+
+5. Be friendly, concise, and practical. Focus on actionable advice.
+6. If asked about specific features, explain how they work in FinFit.
+7. If it isn't anything about finance or FinFit, respond with "I'm here to help with your financial questions!"
+
+Example responses:
+- "On [date], you spent ₹[amount] to [recipient]"
+- "Your highest spending was ₹[amount] on [date] to [recipient]"
+- "You received ₹[amount] from [sender] on [date]"
+- "Here are your recent transactions (newest first): [list transactions]"
+"""
 
 
 def build_user_context(user):
-    """Build a compact, safe snapshot of the user's profile and finances."""
+    """Build a comprehensive snapshot of the user's profile and finances with ALL transactions."""
     income = db.session.query(func.sum(Transaction.amount)).filter(
         Transaction.user_id == user.id, Transaction.type == 'income'
     ).scalar() or 0
@@ -304,28 +282,89 @@ def build_user_context(user):
         else:
             progress = 0
         goal_summaries.append(
-            f"{g.name}: {g.current_amount:.2f}/{g.target_amount:.2f} ({progress:.0f}%){f' due {g.deadline}' if g.deadline else ''}"
+            f"{g.name}: ₹{g.current_amount:.2f}/₹{g.target_amount:.2f} ({progress:.0f}%){f' due {g.deadline}' if g.deadline else ''}"
         )
     goal_text = "; ".join(goal_summaries[:3]) if goal_summaries else "None"
 
-    # Recent activity for better personalization
-    recent_transactions = (
+    # Get ALL transactions (not just recent 5) for comprehensive analysis
+    # Sort by date (newest first), then by ID (higher = newer)
+    all_transactions = (
         Transaction.query.filter_by(user_id=user.id)
-        .order_by(Transaction.date.desc())
-        .limit(5)
+        .order_by(Transaction.date.desc(), Transaction.id.desc())
         .all()
     )
-    txn_text = "; ".join(
-        f"{t.date} {t.type} {t.category}: {t.amount:.2f}" for t in recent_transactions
-    ) or "No transactions recorded"
+    
+    # Format all transactions with rupee symbol - make it more readable
+    # All transactions are already sorted newest first (date desc, id desc)
+    transaction_list = []
+    for idx, t in enumerate(all_transactions, 1):
+        transaction_type = "Income" if t.type == 'income' else "Expense"
+        type_icon = "💰" if t.type == 'income' else "💸"
+        transaction_list.append(
+            f"{idx}. {type_icon} [{t.date}] {transaction_type}: ₹{t.amount:.2f} | To/From: {t.category}"
+        )
+    
+    transactions_text = "\n".join(transaction_list) if transaction_list else "No transactions recorded"
+    
+    # Create recent transactions section (first 10 from sorted list = newest 10)
+    # Since all_transactions is already sorted newest first, first 10 are the most recent
+    recent_transactions = all_transactions[:10] if len(all_transactions) > 10 else all_transactions
+    recent_list = []
+    for idx, t in enumerate(recent_transactions, 1):
+        transaction_type = "Income" if t.type == 'income' else "Expense"
+        type_icon = "💰" if t.type == 'income' else "💸"
+        recent_list.append(
+            f"{idx}. {type_icon} [{t.date}] {transaction_type}: ₹{t.amount:.2f} | To/From: {t.category}"
+        )
+    recent_transactions_text = "\n".join(recent_list) if recent_list else "No recent transactions"
+    
+    # Calculate some useful statistics for the chatbot
+    if all_transactions:
+        expenses = [t for t in all_transactions if t.type == 'expense']
+        if expenses:
+            highest_expense = max(expenses, key=lambda x: x.amount)
+            highest_expense_info = f"Highest expense: ₹{highest_expense.amount:.2f} on {highest_expense.date} to {highest_expense.category}"
+        else:
+            highest_expense_info = "No expenses recorded"
+        
+        # Group expenses by date to find highest spending day
+        expenses_by_date = {}
+        for t in expenses:
+            if t.date not in expenses_by_date:
+                expenses_by_date[t.date] = 0
+            expenses_by_date[t.date] += t.amount
+        
+        if expenses_by_date:
+            highest_spending_date = max(expenses_by_date.items(), key=lambda x: x[1])
+            highest_date_info = f"Highest spending day: {highest_spending_date[0]} with ₹{highest_spending_date[1]:.2f}"
+        else:
+            highest_date_info = "No spending data available"
+    else:
+        highest_expense_info = "No transactions available"
+        highest_date_info = "No spending data available"
 
     lines = [
+        f"User Profile:",
         f"Name: {user.name or 'Unknown'}",
         f"Email: {user.email}",
         f"Member since: {user.created_at or 'unknown'}",
-        f"Financial snapshot: income {income:.2f}, expense {expense:.2f}, balance {balance:.2f}",
-        f"Active goals (max 3): {goal_text}",
-        f"Recent transactions (max 5): {txn_text}",
+        f"",
+        f"Financial Summary:",
+        f"Total Income: ₹{income:.2f}",
+        f"Total Expenses: ₹{expense:.2f}",
+        f"Current Balance: ₹{balance:.2f}",
+        f"",
+        f"Active Goals: {goal_text}",
+        f"",
+        f"Transaction Statistics:",
+        f"{highest_expense_info}",
+        f"{highest_date_info}",
+        f"",
+        f"RECENT TRANSACTIONS (Last 10, sorted newest first):",
+        f"{recent_transactions_text}",
+        f"",
+        f"ALL TRANSACTIONS (Total: {len(all_transactions)}, sorted newest first):",
+        f"{transactions_text}",
     ]
     return "\n".join(lines)
 
@@ -338,12 +377,27 @@ def chat():
         return jsonify({"reply": "Please type something first 🙂"})
     
     user = get_current_user()
-    user_context = build_user_context(user) if user else "No authenticated user; provide general help."
+    if not user:
+        return jsonify({"reply": "Please login to use the chatbot. I need access to your financial data to help you!"})
+    
+    # Build comprehensive user context with all transactions
+    user_context = build_user_context(user)
+    
+    # Pre-process common transaction queries for better context
+    user_msg_lower = user_message.lower()
+    transaction_keywords = ['date', 'spending', 'spent', 'expense', 'payment', 'paid', 'received', 'income', 'highest', 'lowest', 'when', 'whom', 'who', 'category', 'recipient', 'sender']
+    
+    if any(keyword in user_msg_lower for keyword in transaction_keywords):
+        # Add extra instruction for transaction queries
+        transaction_instruction = "\n\nIMPORTANT: The user is asking about transactions. Analyze the transaction data provided above and give specific answers with dates, amounts in ₹, and recipient/sender names from the category field."
+    else:
+        transaction_instruction = ""
     
     # Build prompt for Ollama
     prompt = (
         f"{SYSTEM_PROMPT}\n\n"
         f"User context:\n{user_context}\n\n"
+        f"{transaction_instruction}\n"
         f"User: {user_message}\nAssistant:"
     )
     
@@ -362,8 +416,19 @@ def chat():
         r.raise_for_status()
         data = r.json()
         reply = data.get("response", "").strip()
+        
+        # Post-process reply to ensure rupee symbol is used
+        # Replace any "Rs." or "INR" with ₹
+        reply = reply.replace("Rs.", "₹").replace("INR", "₹")
+        # Ensure amounts have ₹ symbol if they don't already
+        import re
+        # Pattern: number followed by space and "rupees" or just a number with decimal
+        reply = re.sub(r'(\d+\.?\d*)\s*(rupees?|rupee)', r'₹\1', reply, flags=re.IGNORECASE)
+        
+    except requests.exceptions.ConnectionError:
+        reply = "I'm unable to connect to the AI model. Please make sure Ollama is running on localhost:11434. You can start it by running 'ollama serve' in your terminal."
     except Exception as e:
-        reply = f"Error talking to model: {e}"
+        reply = f"Error talking to model: {str(e)}"
     
     return jsonify({"reply": reply})
 
@@ -1229,199 +1294,6 @@ def generate_report():
     except Exception as e:
         return jsonify({'error': f'Error generating report: {str(e)}'}), 500
 
-# --- PaymentRequest / Merchant QR ---
-def generate_upi_deeplink(upi_id, amount, description, token):
-    """Generate UPI payment deeplink"""
-    # Format: upi://pay?pa=<UPI_ID>&am=<AMOUNT>&tn=<DESCRIPTION>&tr=<TOKEN>
-    upi_id_encoded = upi_id.replace('@', '%40')
-    description_encoded = description.replace(' ', '%20') if description else ''
-    deeplink = f"upi://pay?pa={upi_id_encoded}&am={amount:.2f}&tn={description_encoded}&tr={token}"
-    return deeplink
-
-def generate_qr_code(data):
-    """Generate QR code image as base64"""
-    qr = qrcode.QRCode(version=1, box_size=10, border=5)
-    qr.add_data(data)
-    qr.make(fit=True)
-    img = qr.make_image(fill_color="black", back_color="white")
-    buffer = io.BytesIO()
-    img.save(buffer, format='PNG')
-    buffer.seek(0)
-    img_base64 = base64.b64encode(buffer.read()).decode()
-    return f"data:image/png;base64,{img_base64}"
-
-@app.route('/api/payment-requests', methods=['POST'])
-def create_payment_request():
-    """Create a new payment request and return UPI QR code"""
-    user = get_current_user()
-    if not user:
-        return jsonify({'error': 'Authentication required'}), 401
-    
-    data = request.json
-    amount = float(data.get('amount', 0))
-    description = data.get('description', 'Payment')
-    upi_id = data.get('upi_id', '').strip()
-    payer_email = data.get('payer_email', '').strip()  # Optional: email to send dummy transaction
-    
-    if amount <= 0:
-        return jsonify({'error': 'Amount must be greater than 0'}), 400
-    if not upi_id:
-        return jsonify({'error': 'UPI ID is required'}), 400
-    
-    # Generate unique token
-    token = secrets.token_urlsafe(16)
-    
-    # Create payment request
-    payment_req = PaymentRequest(
-        merchant_id=user.id,
-        amount=amount,
-        description=description,
-        upi_id=upi_id,
-        token=token,
-        status='PENDING',
-        created_at=datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-    )
-    db.session.add(payment_req)
-    db.session.commit()
-    
-    # Generate UPI deeplink and QR code
-    deeplink = generate_upi_deeplink(upi_id, amount, description, token)
-    qr_code = generate_qr_code(deeplink)
-    
-    # If payer_email provided, send dummy transaction email and trigger sync
-    if payer_email:
-        # Send dummy transaction email in background
-        Thread(target=lambda: send_dummy_transaction_email(
-            user.email, payer_email, amount, description, token
-        ), daemon=True).start()
-        
-        # Trigger immediate sync after a short delay (to allow email to be delivered)
-        def delayed_sync():
-            time.sleep(5)  # Wait 5 seconds for email to be delivered
-            trigger_immediate_sync()
-        Thread(target=delayed_sync, daemon=True).start()
-    
-    return jsonify({
-        'id': payment_req.id,
-        'token': token,
-        'amount': amount,
-        'description': description,
-        'upi_id': upi_id,
-        'status': 'PENDING',
-        'deeplink': deeplink,
-        'qr_code': qr_code,
-        'created_at': payment_req.created_at
-    }), 201
-
-@app.route('/api/payment-requests', methods=['GET'])
-def get_payment_requests():
-    """Get all payment requests for current merchant"""
-    user = get_current_user()
-    if not user:
-        return jsonify({'error': 'Authentication required'}), 401
-    
-    requests_list = PaymentRequest.query.filter_by(merchant_id=user.id).order_by(PaymentRequest.created_at.desc()).all()
-    return jsonify([{
-        'id': pr.id,
-        'amount': pr.amount,
-        'description': pr.description,
-        'upi_id': pr.upi_id,
-        'status': pr.status,
-        'token': pr.token,
-        'created_at': pr.created_at,
-        'paid_at': pr.paid_at,
-        'payer_email': pr.payer_email
-    } for pr in requests_list])
-
-@app.route('/api/payment-requests/<int:request_id>', methods=['GET'])
-def get_payment_request_status(request_id):
-    """Get payment request status by ID"""
-    user = get_current_user()
-    if not user:
-        return jsonify({'error': 'Authentication required'}), 401
-    
-    pr = PaymentRequest.query.filter_by(id=request_id, merchant_id=user.id).first()
-    if not pr:
-        return jsonify({'error': 'Payment request not found'}), 404
-    
-    deeplink = generate_upi_deeplink(pr.upi_id, pr.amount, pr.description or '', pr.token)
-    qr_code = generate_qr_code(deeplink) if pr.status == 'PENDING' else None
-    
-    return jsonify({
-        'id': pr.id,
-        'amount': pr.amount,
-        'description': pr.description,
-        'upi_id': pr.upi_id,
-        'status': pr.status,
-        'token': pr.token,
-        'created_at': pr.created_at,
-        'paid_at': pr.paid_at,
-        'payer_email': pr.payer_email,
-        'deeplink': deeplink,
-        'qr_code': qr_code
-    })
-
-@app.route('/api/payment-requests/<int:request_id>/simulate-payment', methods=['POST'])
-def simulate_payment(request_id):
-    """Simulate payment - send transaction email and auto-log it"""
-    user = get_current_user()
-    if not user:
-        return jsonify({'error': 'Authentication required'}), 401
-    
-    pr = PaymentRequest.query.filter_by(id=request_id, merchant_id=user.id).first()
-    if not pr:
-        return jsonify({'error': 'Payment request not found'}), 404
-    
-    if pr.status == 'PAID':
-        return jsonify({'error': 'Payment already processed'}), 400
-    
-    # Get payer email from request or use merchant's email for testing
-    data = request.json or {}
-    payer_email = data.get('payer_email', '').strip() or user.email
-    
-    # Check if payer has Gmail connected
-    payer_gmail = GmailConnection.query.filter_by(user_id=user.id, is_active=True).first()
-    if not payer_gmail:
-        return jsonify({
-            'error': 'Gmail not connected. Please connect your Gmail account in Profile settings to enable auto-logging.'
-        }), 400
-    
-    # Reset last_sync_at to force checking recent emails
-    payer_gmail.last_sync_at = (datetime.now() - timedelta(minutes=5)).strftime('%Y-%m-%d %H:%M:%S')
-    db.session.commit()
-    
-    print(f"🔄 Simulating payment: Sending email to {payer_email} for ₹{pr.amount}")
-    
-    # Send dummy transaction email to payer's Gmail
-    email_sent = send_dummy_transaction_email(
-        merchant_email=user.email,
-        payer_email=payer_email,
-        amount=pr.amount,
-        description=pr.description or 'Payment',
-        payment_token=pr.token
-    )
-    
-    if not email_sent:
-        return jsonify({
-            'error': 'Failed to send transaction email. Please check SMTP configuration.'
-        }), 500
-    
-    # Trigger immediate sync after delay to read the email (only once to avoid duplicates)
-    def delayed_sync_and_check():
-        print(f"⏳ Waiting 12 seconds for email delivery...")
-        time.sleep(12)  # Wait for email to be delivered and indexed by Gmail
-        print(f"🔄 Triggering sync...")
-        trigger_immediate_sync()
-        print(f"✅ Sync triggered. Check transactions.")
-    
-    Thread(target=delayed_sync_and_check, daemon=True).start()
-    
-    return jsonify({
-        'message': f'Transaction email sent to {payer_email}. System will automatically detect and log the transaction within 15-20 seconds.',
-        'status': 'processing',
-        'email_sent': True
-    })
-
 # --- Gmail OAuth Integration ---
 GMAIL_CLIENT_ID = os.getenv('GMAIL_CLIENT_ID', '')
 GMAIL_CLIENT_SECRET = os.getenv('GMAIL_CLIENT_SECRET', '')
@@ -1755,6 +1627,7 @@ def parse_upi_transaction_email(email_body, email_subject):
     # Amount patterns - more comprehensive for Indian formats
     # Priority order: most specific first
     amount_patterns = [
+        r'Rs\.?\s*(\d+(?:,\d{3})*(?:\.\d{2})?)\s+is\s+successfully\s+(?:credited|debited)',  # Rs. 10000.00 is successfully credited
         r'Sent\s+Rs\.?\s*(\d+(?:,\d{3})*(?:\.\d{2})?)',  # Sent Rs.1.00 (HDFC format)
         r'Paid\s+Rs\.?\s*(\d+(?:,\d{3})*(?:\.\d{2})?)',  # Paid Rs.1.00
         r'Received\s+Rs\.?\s*(\d+(?:,\d{3})*(?:\.\d{2})?)',  # Received Rs.1.00
@@ -1789,9 +1662,32 @@ def parse_upi_transaction_email(email_body, email_subject):
                 print(f"Error parsing amount {matches[0]}: {e}")
                 continue
     
+    # Extract sender/payer name - patterns for Indian bank emails
+    sender_name = None
+    name_patterns = [
+        r'by\s+VPA\s+[^\s]+\s+([A-Z][A-Z\s]+[A-Z])\s+on',  # by VPA email@domain NAME on date
+        r'by\s+([A-Z][A-Z\s]+[A-Z])\s+on',  # by NAME on date
+        r'from\s+([A-Z][A-Z\s]+[A-Z])\s+',  # from NAME
+        r'by\s+([A-Z][A-Z\s]+[A-Z])\s+',  # by NAME
+        r'VPA\s+[^\s]+\s+([A-Z][A-Z\s]+[A-Z])',  # VPA email@domain NAME
+    ]
+    
+    for pattern in name_patterns:
+        match = re.search(pattern, text)
+        if match:
+            sender_name = match.group(1).strip()
+            # Clean up name (remove extra spaces, limit length)
+            sender_name = ' '.join(sender_name.split())
+            if len(sender_name) > 50:
+                sender_name = sender_name[:50]
+            print(f"Found sender name: {sender_name}")
+            break
+    
     # Transaction ID/Reference patterns - HDFC uses "Ref"
     transaction_id = None
     txn_patterns = [
+        r'UPI\s*transaction\s*reference\s*number\s+is\s+([0-9]+)',  # UPI transaction reference number is 640170587767
+        r'reference\s*number\s+is\s+([0-9]+)',  # reference number is 640170587767
         r'Ref\s+([A-Z0-9]+)',  # Ref xxxxxxxxxxxxx (HDFC format)
         r'Ref\s*No[:\s]+([A-Z0-9]+)',  # Ref No: xxxxx
         r'Reference\s*No[:\s]+([A-Z0-9]+)',  # Reference No: xxxxx
@@ -1818,10 +1714,11 @@ def parse_upi_transaction_email(email_body, email_subject):
         'FROM HDFC', 'FROM BANK', 'DEBIT', 'SENT RS'
     ])
     
-    # Check for credit keywords (money coming IN)
+    # Check for credit keywords (money coming IN) - improved detection
     is_credit = any(keyword in text_upper for keyword in [
         'CREDITED', 'RECEIVED', 'DEPOSITED', 'TO YOUR ACCOUNT',
-        'CREDIT', 'RECEIVE', 'RECEIVED RS', 'CREDITED TO'
+        'CREDIT', 'RECEIVE', 'RECEIVED RS', 'CREDITED TO',
+        'SUCCESSFULLY CREDITED', 'IS SUCCESSFULLY CREDITED'
     ])
     
     # If both found, prioritize based on context
@@ -1829,7 +1726,7 @@ def parse_upi_transaction_email(email_body, email_subject):
     if 'SENT' in text_upper or 'SENT RS' in text_upper:
         is_debit = True
         is_credit = False
-    elif 'RECEIVED' in text_upper or 'CREDITED' in text_upper or 'CREDITED TO' in text_upper:
+    elif 'RECEIVED' in text_upper or 'CREDITED' in text_upper or 'CREDITED TO' in text_upper or 'IS SUCCESSFULLY CREDITED' in text_upper:
         is_credit = True
         is_debit = False
     
@@ -1840,10 +1737,13 @@ def parse_upi_transaction_email(email_body, email_subject):
         print(f"  Body preview: {email_body[:100]}")
         if transaction_id:
             print(f"  Transaction ID: {transaction_id}")
+        if sender_name:
+            print(f"  Sender Name: {sender_name}")
     
     return {
         'amount': amount,
         'transaction_id': transaction_id,
+        'sender_name': sender_name,
         'is_payment': is_debit,  # Payment made by user
         'is_credit': is_credit   # Payment received
     }
@@ -2003,7 +1903,7 @@ def sync_gmail_transactions():
                 else:
                     after_date = min_recent_date
                 
-                print(f"📅 Checking emails after: {after_date.strftime('%Y-%m-%d %H:%M:%S')}")
+                print(f"[DATE] Checking emails after: {after_date.strftime('%Y-%m-%d %H:%M:%S')}")
                 
                 # Fetch emails
                 emails = fetch_gmail_messages(conn.access_token, max_results=100, after_date=after_date)
@@ -2036,10 +1936,10 @@ def sync_gmail_transactions():
                         
                         # Skip if we already processed this email in this sync run
                         if email_id in processed_email_ids:
-                            print(f"   ⚠️  Skipping already processed email ID: {email_id}")
+                            print(f"   [WARN] Skipping already processed email ID: {email_id}")
                             continue
                         
-                        print(f"\n📧 Processing email ID: {email_id}")
+                        print(f"\n[MAIL] Processing email ID: {email_id}")
                         print(f"   Subject: {email['subject'][:60]}")
                         print(f"   Body preview: {email['body'][:200]}")
                         
@@ -2047,140 +1947,175 @@ def sync_gmail_transactions():
                         parsed = parse_upi_transaction_email(email['body'], email['subject'])
                         
                         if not parsed['amount']:
-                            print(f"   ⚠️  No amount found in email, skipping")
+                            print(f"   [WARN] No amount found in email, skipping")
                             processed_email_ids.add(email_id)  # Mark as processed even if no amount
                             continue
                         
-                        print(f"   ✅ Parsed: Amount=₹{parsed['amount']}, is_payment={parsed['is_payment']}, is_credit={parsed.get('is_credit', False)}")
+                        print(f"   [OK] Parsed: Amount=₹{parsed['amount']}, is_payment={parsed['is_payment']}, is_credit={parsed.get('is_credit', False)}")
                         
-                        # Get email date
+                        # Get email date - try multiple sources
                         email_date = datetime.now().strftime('%Y-%m-%d')
-                        if email.get('date_str'):
+                        
+                        # First try to parse date from email body (format: "on 04-02-26")
+                        date_patterns = [
+                            r'on\s+(\d{2})-(\d{2})-(\d{2})',  # on 04-02-26
+                            r'on\s+(\d{2})/(\d{2})/(\d{2})',  # on 04/02/26
+                            r'on\s+(\d{2})-(\d{2})-(\d{4})',  # on 04-02-2026
+                            r'on\s+(\d{2})/(\d{2})/(\d{4})',  # on 04/02/2026
+                        ]
+                        
+                        email_text = f"{email.get('subject', '')} {email.get('body', '')}"
+                        for pattern in date_patterns:
+                            match = re.search(pattern, email_text, re.IGNORECASE)
+                            if match:
+                                try:
+                                    day, month, year = match.groups()
+                                    # Handle 2-digit year
+                                    if len(year) == 2:
+                                        year = '20' + year  # Assume 20xx
+                                    email_date = f"{year}-{month}-{day}"
+                                    print(f"   [DATE] Parsed date from email body: {email_date}")
+                                    break
+                                except:
+                                    pass
+                        
+                        # Fallback to email header date
+                        if email_date == datetime.now().strftime('%Y-%m-%d') and email.get('date_str'):
                             try:
                                 from email.utils import parsedate_to_datetime
                                 email_date_obj = parsedate_to_datetime(email['date_str'])
                                 email_date = email_date_obj.strftime('%Y-%m-%d')
+                                print(f"   [DATE] Using email header date: {email_date}")
                             except:
                                 pass
                         
                         # Determine transaction type based on email content
-                        transaction_type = 'expense' if (parsed['is_payment'] and not parsed.get('is_credit')) else 'income'
+                        # is_credit = True means money coming IN (income)
+                        # is_payment = True (and not credit) means money going OUT (expense)
+                        is_credit = parsed.get('is_credit', False)
+                        is_payment_debit = parsed.get('is_payment', False) and not is_credit
                         
-                        # Check for duplicate transaction - strict check by amount, date, AND type
+                        transaction_type = 'income' if is_credit else ('expense' if is_payment_debit else 'income')
+                        
+                        # Prepare category for duplicate check
+                        sender_name = parsed.get('sender_name', '')
+                        if transaction_type == 'expense':
+                            category = f'UPI Payment - {sender_name}' if sender_name else 'UPI Payment'
+                        else:
+                            category = f'Payment Received - {sender_name}' if sender_name else 'Payment Received'
+                        
+                        print(f"   [INFO] Transaction type determination: is_credit={is_credit}, is_payment_debit={is_payment_debit}, type={transaction_type}")
+                        
+                        # Check for duplicate transaction - improved logic:
+                        # 1. First check by transaction ID (UPI reference number) - most reliable
+                        # 2. If no transaction ID, check by amount + date + type + category (sender/recipient name)
+                        existing = None
+                        
+                        if parsed.get('transaction_id'):
+                            # Check by transaction ID first (most reliable)
+                            existing = Transaction.query.filter(
+                                Transaction.user_id == conn.user_id,
+                                Transaction.note.contains(parsed['transaction_id'])
+                            ).first()
+                            
+                            if existing:
+                                print(f"   [WARN] DUPLICATE SKIPPED: Transaction ID {parsed['transaction_id']} already exists")
+                                print(f"      Existing ID: {existing.id}, Amount: ₹{existing.amount}, Category: {existing.category}")
+                                processed_email_ids.add(email_id)
+                                continue
+                        
+                        # If no transaction ID or not found by ID, check by amount + date + type + category
+                        # This allows same amount to same person on same day if they're separate transactions
                         existing = Transaction.query.filter(
                             Transaction.user_id == conn.user_id,
                             Transaction.amount == parsed['amount'],
                             Transaction.date == email_date,
-                            Transaction.type == transaction_type
+                            Transaction.type == transaction_type,
+                            Transaction.category == category
                         ).first()
                         
                         if existing:
-                            print(f"   ⚠️  DUPLICATE SKIPPED: Transaction ₹{parsed['amount']} ({transaction_type}) on {email_date} already exists")
-                            print(f"      Existing ID: {existing.id}, Note: {existing.note[:50]}")
-                            processed_email_ids.add(email_id)
-                            continue
+                            # Only skip if it's the exact same transaction (same amount, date, type, AND recipient/sender)
+                            # But allow if transaction ID is different (means it's a different payment)
+                            if parsed.get('transaction_id'):
+                                # If we have a transaction ID and existing doesn't match, it's a different transaction
+                                existing_note = existing.note or ''
+                                if parsed['transaction_id'] not in existing_note:
+                                    print(f"   [INFO] Same amount/category/date but different transaction ID - allowing as separate transaction")
+                                    # Continue to create new transaction
+                                else:
+                                    print(f"   [WARN] DUPLICATE SKIPPED: Same transaction (₹{parsed['amount']} to {category} on {email_date})")
+                                    print(f"      Existing ID: {existing.id}, Note: {existing.note[:50]}")
+                                    processed_email_ids.add(email_id)
+                                    continue
+                            else:
+                                # No transaction ID - be more lenient, check if it's within last 5 minutes
+                                # If same amount/category/date but no transaction ID, allow if email is different
+                                print(f"   [WARN] Possible duplicate: Same amount/category/date but no transaction ID")
+                                print(f"      Existing ID: {existing.id}, Note: {existing.note[:50]}")
+                                # Still skip to avoid true duplicates, but log it
+                                processed_email_ids.add(email_id)
+                                continue
                         
                         # Mark email as being processed
                         processed_email_ids.add(email_id)
                         
-                        # Try to match with PaymentRequest by amount and recent time (for merchant)
-                        # Check last 48 hours for payment requests
-                        recent_time = datetime.now() - timedelta(hours=48)
-                        payment_req = PaymentRequest.query.filter(
-                            PaymentRequest.amount == parsed['amount'],
-                            PaymentRequest.status == 'PENDING',
-                            PaymentRequest.created_at >= recent_time.strftime('%Y-%m-%d %H:%M:%S')
-                        ).first()
+                        # Log transactions from emails (merchant functionality removed)
+                        # Build note with transaction ID for better tracking
+                        transaction_id_str = f"Txn ID: {parsed.get('transaction_id')}" if parsed.get('transaction_id') else ""
+                        note_parts = [f"Synced from email: {email['subject'][:80]}"]
+                        if transaction_id_str:
+                            note_parts.append(transaction_id_str)
+                        note = " | ".join(note_parts)
                         
-                        print(f"  Checking payment request match: amount={parsed['amount']}, is_payment={parsed['is_payment']}, is_credit={parsed.get('is_credit', False)}, found_req={payment_req is not None}")
-                        
-                        # Match if: payment request exists AND (it's a credit OR it's a payment/debit from user)
-                        # "Sent" emails are debits from user, which should match pending payment requests
-                        if payment_req and (parsed.get('is_credit') or parsed['is_payment']):
-                            print(f"   🎯 MATCHED Payment Request ID {payment_req.id} for ₹{payment_req.amount}")
-                            
-                            # Mark payment request as paid
-                            payment_req.status = 'PAID'
-                            payment_req.paid_at = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-                            payment_req.payer_email = conn.user.email
-                            
-                            # Classify transaction based on email content:
-                            # - "Sent" = money going OUT → Expense
-                            # - "Received/Credited" = money coming IN → Income
-                            
-                            if parsed['is_payment'] and not parsed.get('is_credit'):
-                                # Email says "Sent" - money going OUT of user's account → EXPENSE
-                                transaction = Transaction(
-                                    user_id=conn.user_id,
-                                    type='expense',
-                                    category='UPI Payment',
-                                    amount=parsed['amount'],
-                                    date=email_date,
-                                    note=f"Payment sent: {payment_req.description or 'Merchant QR'} - Token: {payment_req.token}"
-                                )
-                                db.session.add(transaction)
-                                db.session.flush()
-                                payment_req.transaction_id = transaction.id
-                                print(f"   💸 Logged as EXPENSE (money sent out of account)")
-                                
-                            elif parsed.get('is_credit'):
-                                # Email says "Received/Credited" - money coming IN to user's account → INCOME
-                                transaction = Transaction(
-                                    user_id=conn.user_id,
-                                    type='income',
-                                    category='Payment Received',
-                                    amount=parsed['amount'],
-                                    date=email_date,
-                                    note=f"Payment received: {payment_req.description or 'Merchant QR'} - Token: {payment_req.token}"
-                                )
-                                db.session.add(transaction)
-                                db.session.flush()
-                                payment_req.transaction_id = transaction.id
-                                print(f"   💰 Logged as INCOME (money received into account)")
-                            
-                            db.session.commit()
-                            print(f"   ✅ SUCCESS: Payment request marked PAID, transaction logged!")
-                            processed_count += 1
-                            # Don't trigger another sync here - it causes duplicates
-                        elif parsed['is_payment'] and not parsed.get('is_credit') and not payment_req:
-                            # Auto-log as expense for the user (payment made by user, no matching payment request)
-                            # Email says "Sent" - money going out
-                            print(f"   💸 Auto-logging EXPENSE (money sent out): ₹{parsed['amount']}")
+                        # Log transaction based on determined type (category already set above)
+                        if transaction_type == 'expense':
+                            # Money going out
+                            print(f"   [AUTO] Auto-logging EXPENSE (money sent out): ₹{parsed['amount']} to {sender_name or 'Unknown'}")
                             transaction = Transaction(
                                 user_id=conn.user_id,
                                 type='expense',
-                                category='UPI Payment',
+                                category=category,
                                 amount=parsed['amount'],
                                 date=email_date,
-                                note=f"Auto-logged from email: {email['subject'][:100]}"
+                                note=note
                             )
                             db.session.add(transaction)
                             db.session.commit()
-                            print(f"   ✅ SUCCESS: Expense logged: ₹{parsed['amount']} - {email['subject'][:50]}")
+                            refresh_user_learning_recommendations(conn.user_id)
+                            print(f"   [OK] SUCCESS: Expense logged: ₹{parsed['amount']} - {category}")
                             processed_count += 1
-                        elif parsed.get('is_credit') and not payment_req:
-                            # Auto-log as income for the user (payment received, no matching payment request)
-                            # Email says "Received/Credited" - money coming in
-                            print(f"   💰 Auto-logging INCOME (money received): ₹{parsed['amount']}")
+                        elif transaction_type == 'income':
+                            # Money coming in (credit)
+                            print(f"   [AUTO] Auto-logging INCOME (money received): ₹{parsed['amount']} from {sender_name or 'Unknown'}")
                             transaction = Transaction(
                                 user_id=conn.user_id,
                                 type='income',
-                                category='Payment Received',
+                                category=category,
                                 amount=parsed['amount'],
                                 date=email_date,
-                                note=f"Auto-logged from email: {email['subject'][:100]}"
+                                note=note
                             )
                             db.session.add(transaction)
                             db.session.commit()
-                            print(f"   ✅ SUCCESS: Income logged: ₹{parsed['amount']} - {email['subject'][:50]}")
+                            refresh_user_learning_recommendations(conn.user_id)
+                            print(f"   [OK] SUCCESS: Income logged: ₹{parsed['amount']} - {category}")
                             processed_count += 1
-                            # Don't trigger another sync here - it causes duplicates
-                            
-                            # Trigger immediate sync again to catch any new emails
-                            def delayed_sync_expense():
-                                time.sleep(2)
-                                trigger_immediate_sync()
-                            Thread(target=delayed_sync_expense, daemon=True).start()
+                        else:
+                            # Fallback - should not happen, but log it
+                            print(f"   [WARN] WARNING: Unknown transaction type, defaulting to income")
+                            transaction = Transaction(
+                                user_id=conn.user_id,
+                                type='income',
+                                category=category,
+                                amount=parsed['amount'],
+                                date=email_date,
+                                note=note
+                            )
+                            db.session.add(transaction)
+                            db.session.commit()
+                            print(f"   [OK] SUCCESS: Income logged (fallback): ₹{parsed['amount']} - {category}")
+                            processed_count += 1
                     except Exception as e:
                         print(f"Error processing email {email.get('id')}: {e}")
                         import traceback
@@ -2190,7 +2125,7 @@ def sync_gmail_transactions():
                 # Update last sync time
                 conn.last_sync_at = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
                 db.session.commit()
-                print(f"✅ Sync complete for user {conn.user_id}: {processed_count} transactions processed")
+                print(f"[OK] Sync complete for user {conn.user_id}: {processed_count} transactions processed")
                 
             except Exception as e:
                 print(f"Error syncing Gmail for user {conn.user_id}: {e}")
@@ -2204,7 +2139,7 @@ def trigger_immediate_sync():
 
 @app.route('/api/gmail/sync', methods=['POST'])
 def manual_gmail_sync():
-    """Manually trigger Gmail sync"""
+    """Manually trigger Gmail sync to log transactions from emails"""
     user = get_current_user()
     if not user:
         return jsonify({'error': 'Authentication required'}), 401
@@ -2212,59 +2147,29 @@ def manual_gmail_sync():
     # Check if user has Gmail connected
     gmail_conn = GmailConnection.query.filter_by(user_id=user.id, is_active=True).first()
     if not gmail_conn:
-        return jsonify({'error': 'Gmail not connected. Please connect your Gmail account first.'}), 400
+        return jsonify({'error': 'Gmail not connected. Please connect your Gmail account first from the Profile page.'}), 400
+    
+    # Track transactions before sync
+    transactions_before = Transaction.query.filter_by(user_id=user.id).count()
     
     # Run sync in background thread
-    thread = Thread(target=sync_gmail_transactions)
+    def sync_and_update():
+        with app.app_context():
+            sync_gmail_transactions()
+            # Get count after sync
+            transactions_after = Transaction.query.filter_by(user_id=user.id).count()
+            new_transactions = transactions_after - transactions_before
+            print(f"Sync complete: {new_transactions} new transactions added")
+    
+    thread = Thread(target=sync_and_update)
     thread.daemon = True
     thread.start()
     
     return jsonify({
-        'message': 'Sync started. Checking your emails for transactions...',
-        'status': 'processing'
+        'message': 'Sync started. Checking your emails for transactions that are not yet recorded in the system...',
+        'status': 'processing',
+        'note': 'Please wait a few seconds and refresh the transaction list to see new transactions.'
     })
-
-def send_dummy_transaction_email(merchant_email, payer_email, amount, description, payment_token):
-    """Send a dummy transaction email simulating bank payment notification"""
-    if not SMTP_EMAIL or not SMTP_PASSWORD:
-        print("SMTP not configured, skipping email send")
-        return False
-    
-    try:
-        # Format email body in HDFC Bank style
-        current_date = datetime.now().strftime('%d/%m/%y')
-        ref_number = payment_token[:12].upper()  # Use first 12 chars of token as ref
-        
-        email_body = f"""Sent Rs.{amount:.2f}
-
-From HDFC Bank A/C ****
-
-To {merchant_email[:15]}
-
-On {current_date}
-
-Ref {ref_number}
-
-Not You?
-
-Call 1800-123-1234"""
-        
-        msg = MIMEMultipart()
-        msg['From'] = SMTP_EMAIL
-        msg['To'] = payer_email
-        msg['Subject'] = f'Payment Alert - Rs.{amount:.2f} sent'
-        msg.attach(MIMEText(email_body, 'plain'))
-        
-        with smtplib.SMTP(SMTP_SERVER, SMTP_PORT) as server:
-            server.starttls()
-            server.login(SMTP_EMAIL, SMTP_PASSWORD)
-            server.send_message(msg)
-        
-        print(f"✅ Sent dummy transaction email to {payer_email} for ₹{amount}")
-        return True
-    except Exception as e:
-        print(f"Error sending dummy transaction email: {e}")
-        return False
 
 def trigger_immediate_sync():
     """Trigger immediate Gmail sync in background"""
@@ -2308,10 +2213,11 @@ if __name__ == '__main__':
         sync_thread = Thread(target=start_background_sync, daemon=True)
         sync_thread.start()
 
+    # Keep startup logs ASCII-only to avoid Windows console encoding issues.
     print("\n" + "="*50)
-    print("🚀 FinFit is running!")
+    print("FinFit is running!")
     print("="*50)
-    print(f"💻 Access at: http://127.0.0.1:5000")
+    print(f"Access at: http://127.0.0.1:5000")
     print("="*50 + "\n")
 
     # IMPORTANT: host is now 0.0.0.0

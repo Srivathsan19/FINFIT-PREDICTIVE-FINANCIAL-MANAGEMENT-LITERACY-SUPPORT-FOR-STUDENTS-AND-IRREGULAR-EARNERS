@@ -113,7 +113,7 @@ function renderDashboard(userName) {
             <div class="dashboard-right">
                 <div class="card recent-transactions-card">
                     <div class="card-header">
-                        <h3>What purchases did you make recently?</h3>
+                        <h3>Recent Transactions</h3>
                         <button class="card-add-btn">➕</button>
                     </div>
                     <div id="recent-transactions"></div>
@@ -335,7 +335,18 @@ function fetchRecentTransactions() {
     fetch('/api/transactions')
         .then(res => res.json())
         .then(data => {
-            const recent = data.sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 5);
+            // Sort by date (newest first), then by ID (higher ID = newer) to ensure most recent at top
+            const sorted = data.sort((a, b) => {
+                const dateA = new Date(a.date);
+                const dateB = new Date(b.date);
+                // First sort by date (newest first)
+                if (dateB - dateA !== 0) {
+                    return dateB - dateA;
+                }
+                // If dates are same, sort by ID (higher ID = newer transaction)
+                return (b.id || 0) - (a.id || 0);
+            });
+            const recent = sorted.slice(0, 5);
             const container = document.getElementById('recent-transactions');
             if (!container) return;
             
@@ -346,14 +357,15 @@ function fetchRecentTransactions() {
             const list = recent.map(t => {
                 const dateParts = t.date.split('-');
                 const displayDate = dateParts.length === 3 ? `${dateParts[2]}.${dateParts[1]}` : t.date;
+                // Ensure full category name is displayed (including sender/recipient name)
+                const categoryDisplay = t.category || 'Unknown';
                 return `
                     <div class="transaction-item-new ${t.type}">
-                        <span class="transaction-icon">📄</span>
-                        <div class="transaction-info">
-                            <strong>${t.category}</strong>
+                        <span class="transaction-icon">${t.type === 'income' ? '💰' : '💸'}</span>
+                        <div class="transaction-info" style="flex: 1; min-width: 0;">
+                            <strong style="word-break: break-word; white-space: normal;">${categoryDisplay}</strong>
                             <div class="transaction-meta">
                                 <span class="transaction-date">${displayDate}</span>
-                                <span class="transaction-category-tag">${t.category}</span>
                             </div>
                         </div>
                         <span class="transaction-amount-new ${t.type}">${t.type === 'income' ? '+' : '-'}${formatCurrency(Math.abs(t.amount))}</span>

@@ -1,0 +1,20 @@
+{
+  "generated_at": "2026-03-23T23:39:48",
+  "db_path": "C:\\Users\\asus tuf\\Downloads\\FinFit_Project - Copy - Copy\\backend\\database.db",
+  "user_id": 3,
+  "transactions_used": 26,
+  "monthly_points": 2,
+  "regression_quality": {
+    "status": "insufficient",
+    "reason": "Only 2 month(s). Need at least 3 for meaningful regression quality.",
+    "months_used": 2
+  },
+  "clustering_quality": {
+    "status": "ok",
+    "points_used": 17,
+    "k_used": 3,
+    "silhouette": 0.49873848355436756,
+    "verdict": "good"
+  },
+  "overall_verdict": "promising_but_data_limited"
+}

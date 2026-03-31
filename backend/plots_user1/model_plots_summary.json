@@ -1,0 +1,19 @@
+{
+  "generated_at": "2026-03-23T23:36:46",
+  "db_path": "C:\\Users\\asus tuf\\Downloads\\FinFit_Project - Copy - Copy\\backend\\database.db",
+  "user_id": 1,
+  "transactions_used": 2,
+  "regression": {
+    "months_used": 1,
+    "slope": 0.0,
+    "intercept": 2000.0,
+    "r2": 0.0,
+    "forecast_next_month_total": 2000.0,
+    "forecast_label": "2025-12",
+    "plots": [
+      "backend/plots_user1\\regression_monthly_forecast.png",
+      "backend/plots_user1\\regression_residuals.png"
+    ]
+  },
+  "clustering": "Not enough expense points for clustering (need at least 3)."
+}

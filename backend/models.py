@@ -68,3 +68,63 @@ class GmailConnection(db.Model):
     is_active = db.Column(db.Boolean, default=True)
     
     user = db.relationship('User', backref='gmail_connection')
+
+
+# -----------------------------
+# Adaptive Learning (Persistence)
+# -----------------------------
+
+class LearningModuleCompletion(db.Model):
+    """
+    Tracks which learning modules the user has completed so they don't show up again.
+    """
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False, index=True)
+    module_key = db.Column(db.String(80), nullable=False, index=True)
+    completed_at = db.Column(db.String(30), nullable=False)
+
+    __table_args__ = (
+        db.UniqueConstraint('user_id', 'module_key', name='uq_learning_module_completion'),
+    )
+
+
+class LearningRecommendationCache(db.Model):
+    """
+    Stores the ranked recommendation list (module keys + metadata) for a user.
+    """
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False, unique=True, index=True)
+    recommendations_json = db.Column(db.Text, nullable=False, default='[]')
+    updated_at = db.Column(db.String(30), nullable=False)
+
+
+class ModuleContentCache(db.Model):
+    """
+    Stores Ollama-generated module content per user/module with a profile fingerprint and timestamp.
+    """
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False, index=True)
+    module_key = db.Column(db.String(80), nullable=False, index=True)
+    profile_fingerprint = db.Column(db.String(120), nullable=False, index=True)
+    generated_content = db.Column(db.Text, nullable=False)
+    generated_at = db.Column(db.String(30), nullable=False)
+    content_source = db.Column(db.String(20), nullable=False, default='ollama')  # 'ollama' | 'fallback'
+
+    __table_args__ = (
+        db.Index('idx_module_content_cache_user_module_fp', 'user_id', 'module_key', 'profile_fingerprint'),
+    )
+
+
+# -----------------------------
+# Analytics Momentum (Stability)
+# -----------------------------
+
+class UserProfileHistory(db.Model):
+    """
+    Stores recent spending profile evaluations so the displayed KMeans label doesn't flip on single outliers.
+    """
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False, index=True)
+    cluster_label = db.Column(db.String(30), nullable=False, index=True)  # Saver | Balanced | High-Spender
+    confidence = db.Column(db.Float, nullable=True)
+    created_at = db.Column(db.String(30), nullable=False)

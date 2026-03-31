@@ -161,6 +161,60 @@ body.light .transaction-history-item {
     }
 }
 
+/* Insights cards (Analytics page) */
+.insights-inner {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 18px;
+    margin-bottom: 18px;
+}
+
+.insight-card {
+    padding: 18px 16px;
+    min-height: 140px;
+    border-radius: 12px;
+    background: rgba(0, 0, 0, 0.18);
+    border-left: 4px solid rgba(212, 175, 55, 0.8);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.insight-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 18px 50px rgba(0, 0, 0, 0.35);
+}
+
+.insight-label {
+    color: rgba(242, 210, 123, 0.95);
+    font-weight: 700;
+    letter-spacing: 0.2px;
+    margin-bottom: 10px;
+}
+
+.stat-amount {
+    font-size: 1.6em;
+    font-weight: 800;
+    color: #f2d27b;
+}
+
+.insight-meta {
+    margin-top: 6px;
+    color: rgba(242, 210, 123, 0.7);
+    font-size: 0.95em;
+    line-height: 1.4;
+}
+
+@media (max-width: 1000px) {
+    .insights-inner {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+@media (max-width: 680px) {
+    .insights-inner {
+        grid-template-columns: 1fr;
+    }
+}
+
 
 
 

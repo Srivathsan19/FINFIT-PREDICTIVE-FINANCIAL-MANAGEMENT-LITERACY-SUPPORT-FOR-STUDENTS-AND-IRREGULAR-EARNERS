@@ -1,0 +1,35 @@
+{
+  "generated_at": "2026-03-23T23:34:13",
+  "db_path": "C:\\Users\\asus tuf\\Downloads\\FinFit_Project - Copy - Copy\\backend\\database.db",
+  "user_id": null,
+  "transactions_used": 62,
+  "regression": {
+    "months_used": 5,
+    "slope": 70187.9,
+    "intercept": 152908.60000000003,
+    "r2": 0.08634007455090398,
+    "forecast_next_month_total": 503848.10000000003,
+    "forecast_label": "2026-03",
+    "plots": [
+      "C:\\Users\\asus tuf\\Downloads\\FinFit_Project - Copy - Copy\\backend\\plots\\regression_monthly_forecast.png",
+      "C:\\Users\\asus tuf\\Downloads\\FinFit_Project - Copy - Copy\\backend\\plots\\regression_residuals.png"
+    ]
+  },
+  "clustering": {
+    "points_used": 38,
+    "features": [
+      "amount",
+      "day_of_month",
+      "weekday",
+      "category_id"
+    ],
+    "categories_count": 15,
+    "k_used": 3,
+    "inertia": 73.82168117577494,
+    "plots": [
+      "C:\\Users\\asus tuf\\Downloads\\FinFit_Project - Copy - Copy\\backend\\plots\\clustering_elbow.png",
+      "C:\\Users\\asus tuf\\Downloads\\FinFit_Project - Copy - Copy\\backend\\plots\\clustering_scatter_pca.png",
+      "C:\\Users\\asus tuf\\Downloads\\FinFit_Project - Copy - Copy\\backend\\plots\\clustering_profile_mean_amount.png"
+    ]
+  }
+}
